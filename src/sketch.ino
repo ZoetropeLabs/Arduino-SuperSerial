@@ -3,7 +3,7 @@
 #include <SuperSerial.h>
 
 
-//This is around the maximum that the RS485 chip can support 
+//This is around the maximum that the MAX489 chip can support 
 //since it has slew rate limiting
 #define BAUD_RATE 100000
 
@@ -39,29 +39,26 @@ void setup()
 {
 	Serial.begin(38400);
 	while (!Serial){}
+
 	pinMode(MASTER_SWITCH, INPUT);
+
 	//Check a pin to detect whether this device is a master or a slave
 	if (digitalRead(MASTER_SWITCH)) {
-		device_role = MASTER;
 		device_id = 1;
 	}
 	else {
-		device_role = SLAVE;
 		device_id = 2;
 	}
 
-	if (device_role == SLAVE) {
+	if (device_role == 2) {
 		Serial.println("Slave Device");
-		//The callback will be called when a packet is received.
+		//The callback will be executed when a packet is received (when process() is called)
 		SuperSerial.registerCallback(slaveRxCallback);
 		SuperSerial.begin(&Serial1, BAUD_RATE, device_id, MASTER_DEV_ID, MAX489_RE, MAX489_DE);
 
 	}
 	else {
-		//Wait for a Serial connection
-		while(!Serial){}
 		Serial.print("Master Device");
-		//Discard any unsolicited packets received by the master.
 		SuperSerial.begin(&Serial1, BAUD_RATE, device_id, MASTER_DEV_ID, MAX489_RE, MAX489_DE);
 	}
 
@@ -73,17 +70,19 @@ void loop()
 {
 	char ch;
 
-	switch(device_role) {
-		case MASTER:
+	switch(device_id) {
+		case 1:
 			{
+				//Master device reads serial input and sends them to the slave
 				while (Serial.available() > 0) 
 				{
 					ch = Serial.read(); // Read a character
 					SuperSerial.send(2, 'S', 1, &ch);
 				}
 			} break;
-		case SLAVE:
+		case 2:
 			{
+				//Slave picks up any packets from master and writes to Serial.
 				SuperSerial.process();
 			} break;
 	}
